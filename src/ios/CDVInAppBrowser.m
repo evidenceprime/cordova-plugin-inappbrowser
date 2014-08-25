@@ -73,7 +73,7 @@
 	if ([[url host] isEqualToString:@"itunes.apple.com"]) {
 		return YES;
 	}
-	
+
 	return NO;
 }
 
@@ -90,7 +90,7 @@
     if (url != nil) {
         NSURL* baseUrl = [self.webView.request URL];
         NSURL* absoluteUrl = [[NSURL URLWithString:url relativeToURL:baseUrl] absoluteURL];
-        
+
         if ([self isSystemUrl:absoluteUrl]) {
             target = kInAppBrowserTargetSystem;
         }
@@ -187,7 +187,7 @@
             }
         }
     }
-  
+
     // UIWebView options
     self.inAppBrowserViewController.webView.scalesPageToFit = browserOptions.enableviewportscale;
     self.inAppBrowserViewController.webView.mediaPlaybackRequiresUserAction = browserOptions.mediaplaybackrequiresuseraction;
@@ -196,7 +196,7 @@
         self.inAppBrowserViewController.webView.keyboardDisplayRequiresUserAction = browserOptions.keyboarddisplayrequiresuseraction;
         self.inAppBrowserViewController.webView.suppressesIncrementalRendering = browserOptions.suppressesincrementalrendering;
     }
-  
+
     [self.inAppBrowserViewController navigateTo:url];
     if (!browserOptions.hidden) {
         [self show:nil];
@@ -213,9 +213,9 @@
         NSLog(@"Tried to show IAB while already shown");
         return;
     }
-    
+
     _previousStatusBarStyle = [UIApplication sharedApplication].statusBarStyle;
-    
+
     UINavigationController* nav = [[UINavigationController alloc]
                                    initWithRootViewController:self.inAppBrowserViewController];
     nav.navigationBarHidden = YES;
@@ -438,7 +438,7 @@
     // Don't recycle the ViewController since it may be consuming a lot of memory.
     // Also - this is required for the PDF/User-Agent bug work-around.
     self.inAppBrowserViewController = nil;
-        
+
     _previousStatusBarStyle = -1;
 
     if (IsAtLeastiOSVersion(@"7.0")) {
@@ -476,7 +476,7 @@
     BOOL toolbarIsAtBottom = ![_browserOptions.toolbarposition isEqualToString:kInAppBrowserToolbarBarPositionTop];
     webViewBounds.size.height -= _browserOptions.location ? FOOTER_HEIGHT : TOOLBAR_HEIGHT;
     self.webView = [[UIWebView alloc] initWithFrame:webViewBounds];
-    
+
     self.webView.autoresizingMask = (UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight);
 
     [self.view addSubview:self.webView];
@@ -494,7 +494,7 @@
     self.webView.scalesPageToFit = NO;
     self.webView.userInteractionEnabled = YES;
 
-    self.spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhite];
+    self.spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGray];
     self.spinner.alpha = 1.000;
     self.spinner.autoresizesSubviews = YES;
     self.spinner.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleTopMargin;
@@ -502,7 +502,8 @@
     self.spinner.clipsToBounds = NO;
     self.spinner.contentMode = UIViewContentModeScaleToFill;
     self.spinner.contentStretch = CGRectFromString(@"{{0, 0}, {1, 1}}");
-    self.spinner.frame = CGRectMake(454.0, 231.0, 20.0, 20.0);
+    self.spinner.frame = CGRectMake(self.view.frame.size.width / 2 - 10, self.view.frame.size.height / 2 - 10, 20, 20);
+    self.spinner.transform = CGAffineTransformMakeScale(2.0f, 2.0f);
     self.spinner.hidden = YES;
     self.spinner.hidesWhenStopped = YES;
     self.spinner.multipleTouchEnabled = NO;
@@ -520,7 +521,7 @@
 
     float toolbarY = toolbarIsAtBottom ? self.view.bounds.size.height - TOOLBAR_HEIGHT : 0.0;
     CGRect toolbarFrame = CGRectMake(0.0, toolbarY, self.view.bounds.size.width, TOOLBAR_HEIGHT);
-    
+
     self.toolbar = [[UIToolbar alloc] initWithFrame:toolbarFrame];
     self.toolbar.alpha = 1.000;
     self.toolbar.autoresizesSubviews = YES;
@@ -537,7 +538,7 @@
 
     CGFloat labelInset = 5.0;
     float locationBarY = toolbarIsAtBottom ? self.view.bounds.size.height - FOOTER_HEIGHT : self.view.bounds.size.height - LOCATIONBAR_HEIGHT;
-    
+
     self.addressLabel = [[UILabel alloc] initWithFrame:CGRectMake(labelInset, locationBarY, self.view.bounds.size.width - labelInset, LOCATIONBAR_HEIGHT)];
     self.addressLabel.adjustsFontSizeToFitWidth = NO;
     self.addressLabel.alpha = 1.000;
@@ -576,7 +577,11 @@
     self.backButton.enabled = YES;
     self.backButton.imageInsets = UIEdgeInsetsZero;
 
-    [self.toolbar setItems:@[self.closeButton, flexibleSpaceButton, self.backButton, fixedSpaceButton, self.forwardButton]];
+    self.shareButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAction
+                                                                    target:self
+                                                                    action:@selector(sharePage:)];
+
+    [self.toolbar setItems:@[self.closeButton, fixedSpaceButton, self.shareButton, flexibleSpaceButton, self.backButton, fixedSpaceButton, self.forwardButton]];
 
     self.view.backgroundColor = [UIColor grayColor];
     [self.view addSubview:self.toolbar];
@@ -669,7 +674,7 @@
     if (show) {
         self.toolbar.hidden = NO;
         CGRect webViewBounds = self.view.bounds;
-        
+
         if (locationbarVisible) {
             // locationBar at the bottom, move locationBar up
             // put toolBar at the bottom
@@ -683,7 +688,7 @@
             webViewBounds.size.height -= TOOLBAR_HEIGHT;
             self.toolbar.frame = toolbarFrame;
         }
-        
+
         if ([toolbarPosition isEqualToString:kInAppBrowserToolbarBarPositionTop]) {
             toolbarFrame.origin.y = 0;
             webViewBounds.origin.y += toolbarFrame.size.height;
@@ -692,7 +697,7 @@
             toolbarFrame.origin.y = (webViewBounds.size.height + LOCATIONBAR_HEIGHT);
         }
         [self setWebViewFrame:webViewBounds];
-        
+
     } else {
         self.toolbar.hidden = YES;
 
@@ -726,7 +731,7 @@
     [CDVUserAgentUtil releaseLock:&_userAgentLockToken];
     [super viewDidUnload];
 }
-    
+
 - (UIStatusBarStyle)preferredStatusBarStyle
 {
     return UIStatusBarStyleDefault;
@@ -736,7 +741,7 @@
 {
     [CDVUserAgentUtil releaseLock:&_userAgentLockToken];
     self.currentURL = nil;
-    
+
     if ((self.navigationDelegate != nil) && [self.navigationDelegate respondsToSelector:@selector(browserExit)]) {
         [self.navigationDelegate browserExit];
     }
@@ -775,14 +780,14 @@
 {
     [self.webView goForward];
 }
-    
+
 - (void)viewWillAppear:(BOOL)animated
 {
     if (IsAtLeastiOSVersion(@"7.0")) {
         [[UIApplication sharedApplication] setStatusBarStyle:[self preferredStatusBarStyle]];
     }
     [self rePositionViews];
-    
+
     [super viewWillAppear:animated];
 }
 
@@ -802,6 +807,22 @@
         [self.webView setFrame:CGRectMake(self.webView.frame.origin.x, TOOLBAR_HEIGHT, self.webView.frame.size.width, self.webView.frame.size.height)];
         [self.toolbar setFrame:CGRectMake(self.toolbar.frame.origin.x, [self getStatusBarOffset], self.toolbar.frame.size.width, self.toolbar.frame.size.height)];
     }
+}
+
+- (void)sharePage:(id)sender
+{
+    NSArray *objectsToShare = NULL;
+    if ([[self.currentURL scheme] isEqualToString:@"file"]) {
+        objectsToShare = @[self.currentURL];
+    } else {
+        NSString *urlAsString = [self.currentURL absoluteString];
+        objectsToShare = @[urlAsString, self.currentURL];
+    }
+
+    UIActivityViewController *controller = [[UIActivityViewController alloc]
+                                        initWithActivityItems:objectsToShare
+                                        applicationActivities:nil];
+    [self presentViewController:controller animated:YES completion:nil];
 }
 
 #pragma mark UIWebViewDelegate
