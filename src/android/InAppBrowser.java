@@ -20,8 +20,14 @@ package org.apache.cordova.inappbrowser;
 
 import android.annotation.SuppressLint;
 import org.apache.cordova.inappbrowser.InAppBrowserDialog;
+
+import android.app.ProgressDialog;
+import android.app.SearchManager;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.os.Environment;
+import android.os.HandlerThread;
 import android.provider.Browser;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
@@ -57,13 +63,21 @@ import org.apache.cordova.CordovaWebView;
 import org.apache.cordova.LOG;
 import org.apache.cordova.PluginManager;
 import org.apache.cordova.PluginResult;
+import org.apache.http.util.ByteArrayBuffer;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.BufferedInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.URL;
+import java.net.URLConnection;
 import java.util.HashMap;
 import java.util.StringTokenizer;
+import java.io.File;
 
 @SuppressLint("SetJavaScriptEnabled")
 public class InAppBrowser extends CordovaPlugin {
@@ -329,6 +343,143 @@ public class InAppBrowser extends CordovaPlugin {
         }
     }
 
+
+
+
+
+    private File DownloadFromUrl(final Context context, final String file_http_url) {
+
+
+        final File[] file = {null};
+        cordova.getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                final ProgressDialog progress = new ProgressDialog(cordova.getActivity() );
+
+                progress.setTitle("Please wait");
+                progress.setCancelable(true);
+                progress.setMessage("PDF file downloading...");
+
+                final Thread t = new Thread() {
+                    private boolean downloadCancel = false;
+                    private boolean runned = false;
+                    public void run() {
+                        if(runned) {
+                            downloadCancel = true;
+                            return;
+                        }
+                        runned = true;
+                        Intent intent = null;
+
+                        try {
+                            URL url = new URL(file_http_url); //you can write here any link
+                            String fileName = "temp";
+                            file[0] = File.createTempFile(fileName, ".pdf", Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS));
+                            long startTime = System.currentTimeMillis();
+                            Log.d(LOG_TAG, "Starting download......from " + url);
+                            URLConnection ucon = url.openConnection();
+                            InputStream is = ucon.getInputStream();
+                            BufferedInputStream bis = new BufferedInputStream(is);
+                            if(downloadCancel) return;
+                    /*
+                     * Read bytes to the Buffer until there is nothing more to read(-1).
+                     */
+                            FileOutputStream fos = new FileOutputStream(file[0]);
+                            ByteArrayBuffer baf = new ByteArrayBuffer(50);
+                            int current = 0;
+
+                            while ((current = bis.read()) != -1) {
+                                if(downloadCancel) return;
+                                baf.append((byte) current);
+                                if (baf.isFull()) {
+                                    fos.write(baf.toByteArray());
+                                    baf.clear();
+                                }
+                            }
+
+                            if (!baf.isEmpty()) {
+                                fos.write(baf.toByteArray());
+                            }
+                            fos.close();
+                            Uri uri = Uri.fromFile(file[0]);
+
+
+                            if(downloadCancel) return;
+
+                            intent = new Intent(Intent.ACTION_VIEW);
+                            intent.setFlags(Intent.FLAG_ACTIVITY_NO_HISTORY);
+                            intent.setDataAndType(uri, "application/pdf");
+                            cordova.getActivity().startActivity(intent);
+
+                        } catch (IOException e) {
+                            Log.d(LOG_TAG, "Error: " + e);
+                        }
+
+                        synchronized (InAppBrowser.this) {
+                            progress.dismiss();
+
+                            InAppBrowser.this.notifyAll();
+
+                        }
+                    }
+                };
+
+                ProgressDialog.OnCancelListener cancel = new DialogInterface.OnCancelListener() {
+                    @Override
+                    public void onCancel(DialogInterface dialog) {
+                        t.run();
+                        Log.d(LOG_TAG, "interrrurrprr ");
+                    }
+                };
+                progress.setOnCancelListener(cancel);
+
+                progress.show();
+                t.start();
+
+            }
+        });
+
+
+
+
+
+
+        try {
+            synchronized (this) {
+                this.wait();
+            }
+
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return file[0];
+    }
+
+    public  Boolean openExternalWithSpinner(final String url) {
+        String extension = url.substring(url.lastIndexOf(".") + 1);
+        Boolean isHttp = url.substring(0,7).equals("http://") || url.substring(0,8).equals("https://");
+        String type = "application/pdf";
+
+        if (extension.toLowerCase().equals("pdf")  && isHttp )   {
+
+            final Context context =  cordova.getActivity().getApplicationContext();
+
+
+            Log.d(LOG_TAG, "File http url: " + url);
+
+            new Thread() {
+                public void run() {
+
+                    File file = DownloadFromUrl(context, url);
+                }
+            }.start();
+            return true;
+        }
+        Log.d(LOG_TAG,"File url is not from pdf on server");
+        return false;
+    }
+
+
     /**
      * Display a new browser with the specified URL.
      *
@@ -336,12 +487,17 @@ public class InAppBrowser extends CordovaPlugin {
      * @param usePhoneGap   Load url in PhoneGap webview
      * @return              "" if ok, or error message.
      */
-    public String openExternal(String url) {
+    public String openExternal(final String url) {
         try {
-            Intent intent = null;
-            intent = new Intent(Intent.ACTION_VIEW);
+
             // Omitting the MIME type for file: URLs causes "No Activity found to handle Intent".
             // Adding the MIME type to http: URLs causes them to not be handled by the downloader.
+
+            if(this.openExternalWithSpinner(url)) return "";
+
+            Intent intent = null;
+            intent = new Intent(Intent.ACTION_VIEW);
+
             Uri uri = Uri.parse(url);
             if ("file".equals(uri.getScheme())) {
                 intent.setDataAndType(uri, webView.getResourceApi().getMimeType(uri));
@@ -467,6 +623,8 @@ public class InAppBrowser extends CordovaPlugin {
      */
     public String showWebPage(final String url, HashMap<String, Boolean> features) {
         // Determine if we should hide the location bar.
+        if(this.openExternalWithSpinner(url)) return "";
+
         showLocationBar = true;
         showZoomControls = true;
         openWindowHidden = false;
