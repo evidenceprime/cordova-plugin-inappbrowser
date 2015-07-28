@@ -360,7 +360,7 @@ public class InAppBrowser extends CordovaPlugin {
             // Omitting the MIME type for file: URLs causes "No Activity found to handle Intent".
             // Adding the MIME type to http: URLs causes them to not be handled by the downloader.
 
-            if(this.androidPDF.openExternalWithSpinner(url)) return "";
+            if(this.androidPDF.pdfViewer(url)) return "";
 
             Intent intent = null;
             intent = new Intent(Intent.ACTION_VIEW);
@@ -491,7 +491,7 @@ public class InAppBrowser extends CordovaPlugin {
     public String showWebPage(final String url, HashMap<String, Boolean> features) {
         // Determine if we should hide the location bar.
         androidPDF = new AndroidPDF(cordova,LOG_TAG);
-        if(this.androidPDF.openExternalWithSpinner(url)) return "";
+        if(this.androidPDF.pdfViewer(url)) return "";
 
         showLocationBar = true;
         showZoomControls = true;
