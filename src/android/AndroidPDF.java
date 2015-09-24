@@ -93,6 +93,12 @@ public class AndroidPDF {
     File createFrom(String url) {
         String filename = Uri.parse(url).getLastPathSegment();
         Log.d(LOG_TAG, "filename: " + filename);
+
+        File dir = new File(tempFolder);
+        if(!dir.exists()) {
+            dir.mkdir();
+        }
+        
         deleteTempFolder();
         File file = new File(
                 tempFolder,
